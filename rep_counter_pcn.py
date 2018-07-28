@@ -4,7 +4,13 @@ import datetime
 import socket 
 import requests 
 
+from digi.xbee.devices import XBeeDevice
+from digi.xbee.util import utils
+from digi.xbee.models.address import XBee64BitAddress
+from digi.xbee.models.status import PowerLevel
+
 SERIAL_PORT = '/dev/ttyUSB0' 
+SERIAL_BPS = 9600 
 
 REST_PORT = 3000
 REST_ADDR = "18.222.128.16"
@@ -102,17 +108,28 @@ class RepCounter():
 
 def main(): 
     rep_counter = RepCounter(REST_ADDR, REST_PORT)
-    ser = serial.Serial(port=SERIAL_PORT)
-    while True:
-        msg = ser.readline().decode('utf-8') 
-        #align with start of message 
-        if (re.match("X->(-)?\d+\.\d+,Y->(-)?\d+\.\d+,Z->(-)?\d+\.\d+,D->\d+",msg)): 
-            pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
-            pos_vector = list(map(float, pos_vector)) 
-            rep_counter.update_position(pos_vector)
+    device = XBeeDevice(SERIAL_PORT, SERIAL_BPS)
+    try:
+        device.open()
+        device.flush_queues()
+        while True:
+            try:
+                xbee_message = device.read_data()
+                if xbee_message is not None:
+                    msg = xbee_message.data.decode()
+                    print("From %s >> %s" % (xbee_message.remote_device.get_64bit_addr(),
+                                            msg))
+                    #align with start of message 
+                    if (re.match("X->(-)?\d+\.\d+,Y->(-)?\d+\.\d+,Z->(-)?\d+\.\d+,D->\d+",msg)): 
+                        pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
+                        pos_vector = list(map(float, pos_vector)) 
+                        rep_counter.update_position(pos_vector)
+            except InvalidPacketException: 
+                print("Invalid Packet") 
 
-        else:
-            print("GARBLED -> " + msg)
+    finally:
+        if device is not None and device.is_open():
+            device.close()
 
 if __name__ == '__main__':
     main()                
