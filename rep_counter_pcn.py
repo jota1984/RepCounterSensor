@@ -15,26 +15,10 @@ POSITION_PLANK_HIGH = 2
 POSITION_PLANK_LOW = 3 
 POSITION_UNKNOWN = 4  
 
-THRESHOLDS_LOW = (
-        (-3.6, 8.0, -3.6, 0.0),
-        (-6.0, -3.6, 7.0, 0.0),
-        (-3.6, -1.0, -12.0, 20.0),
-        (-3.6, -1.0, -12.0, 0.0) 
-        )
-
-THRESHOLDS_HIGH = ( 
-        (3.6, 12.0, 3.6, 3000.0),
-        (6.0, 3.6, 12.0, 3000.0),
-        (3.6, 6.3, -6.2, 3000.0),
-        (3.6, 6.3, -6.2, 16.0)
-        )
-
 POSITION_LABELS = ("STANDING","SQUATTING", "PLANK_HIGH", "PLANK_LOW", "UNKOWN")  
 
-ser = serial.Serial(port=SERIAL_PORT)
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
-
 def test_threshold(position, thresh_lo, thresh_hi):
+    """Check if position is between thresh_lo and thresh_hi""" 
     x = position[0]
     y = position[1]
     z = position[2]
@@ -56,42 +40,77 @@ def test_threshold(position, thresh_lo, thresh_hi):
     else: 
         return False 
 
-def determine_position(position): 
-    for i in range(0,4):
-        if (test_threshold(position, THRESHOLDS_LOW[i], THRESHOLDS_HIGH[i])): 
-            return i 
-    return 4 
+class RepCounter():
+    """Process data from sensor node to determine pushup
+    and squat events and forward them to the cloud""" 
 
-def record_squat():
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print("SQUAT!! at " + now)
-    requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/squat') 
+    THRESHOLDS_LOW = (
+            (-3.6, 8.0, -3.6, 0.0),
+            (-6.0, -3.6, 7.0, 0.0),
+            (-3.6, -1.0, -12.0, 20.0),
+            (-3.6, -1.0, -12.0, 0.0) 
+            )
 
-def record_pushup():
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print("PUSHUP!! at " + now)
-    requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/pushup') 
+    THRESHOLDS_HIGH = ( 
+            (3.6, 12.0, 3.6, 3000.0),
+            (6.0, 3.6, 12.0, 3000.0),
+            (3.6, 6.3, -6.2, 3000.0),
+            (3.6, 6.3, -6.2, 16.0)
+            )
+
+
+    def __init__(self, addr, port):
+        self.addr = addr 
+        self.port = port 
+        self.current_pos = POSITION_STANDING
+        self.last_pos = POSITION_STANDING
+
+    def determine_position(self, position): 
+        """categorize a position vector into POSITION_SQUAT, POSITION_STANDING,
+        POSITION_PLANK_HIGH, POSITION_PLANK_LOW or POSITION_UNKNOWN"""
+        for i in range(0,4):
+            if (test_threshold(position, RepCounter.THRESHOLDS_LOW[i], RepCounter.THRESHOLDS_HIGH[i])): 
+                return i 
+        #return POSITION_UNKOWN if no thresholds match
+        return 4 
+
+    def record_squat(self):
+        """Report a squat event to the cloud""" 
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print("SQUAT!! at " + now)
+        requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/squat') 
+
+    def record_pushup(self):
+        """Report a pushup event to the cloud""" 
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print("PUSHUP!! at " + now)
+        requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/pushup') 
+
+    def update_position(self,pos_vector): 
+        """update current position and check for transitions"""
+        print(pos_vector)
+        self.current_pos = self.determine_position(pos_vector)
+        print(POSITION_LABELS[self.current_pos])
+        if (self.current_pos != POSITION_UNKNOWN):
+            if (self.current_pos == POSITION_STANDING and 
+                    self.last_pos == POSITION_SQUAT):
+                self.record_squat() 
+            if (self.current_pos == POSITION_PLANK_HIGH and 
+                    self.current_last_pos == POSITION_PLANK_LOW ):
+                self.record_pushup() 
+            self.last_pos = self.current_pos
 
 def main(): 
-    last_pos = POSITION_STANDING 
-    pos = POSITION_STANDING
+    rep_counter = RepCounter(REST_ADDR, REST_PORT)
+    ser = serial.Serial(port=SERIAL_PORT)
     while True:
         msg = ser.readline().decode('utf-8') 
         #align with start of message 
         if (re.match("X->(-)?\d+\.\d+,Y->(-)?\d+\.\d+,Z->(-)?\d+\.\d+,D->\d+",msg)): 
             pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
             pos_vector = list(map(float, pos_vector)) 
-            print(pos_vector)
-            pos = determine_position(pos_vector)
-            print(POSITION_LABELS[pos])
-            if (pos != POSITION_UNKNOWN):
-                if (pos == POSITION_STANDING and 
-                        last_pos == POSITION_SQUAT):
-                    record_squat() 
-                if (pos == POSITION_PLANK_HIGH and 
-                        last_pos == POSITION_PLANK_LOW ):
-                    record_pushup() 
-                last_pos = pos
+            rep_counter.update_position(pos_vector)
+
         else:
             print("GARBLED -> " + msg)
 
