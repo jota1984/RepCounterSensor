@@ -3,8 +3,6 @@
 #include <Adafruit_ADXL345_U.h>
 #include <SoftwareSerial.h>
 
-
-
 // main loop execution interval 
 const long interval = 250;
 // last loop execution time; 
@@ -16,6 +14,10 @@ const int echoPin = 10;
 
 // Sense distance flag
 int senseDistanceFlag = 1; 
+
+//Sensor data variables
+String x, y, z; 
+int distance; 
 
 // initialize serial com with Xbee 
 SoftwareSerial Xbee(2,3);
@@ -53,13 +55,7 @@ void senseDistance() {
     long pulseDuration = pulseIn(echoPin, HIGH); 
     // speed of sound = 340 m/s = 0.034 cm / us 
     // distance = speed of sound * pulseDuration / 2; 
-    int distance = pulseDuration * 0.034 / 2;  
-    
-    Serial.print("D->");
-    Serial.println(distance);
-    Xbee.print("D->");
-    Xbee.println(distance); 
-    
+    distance = pulseDuration * 0.034 / 2;  
   }
 }
 
@@ -67,13 +63,16 @@ void senseTilt(){
   sensors_event_t event; 
   accel.getEvent(&event);
 
-  String x = String(event.acceleration.x);
-  String y = String(event.acceleration.y);
-  String z = String(event.acceleration.z); 
-  String out = String("X->" + x + ",Y->" + y + ",Z->" + z +","); 
+  x = String(event.acceleration.x);
+  y = String(event.acceleration.y);
+  z = String(event.acceleration.z); 
    
-  Serial.print(out);
-  Xbee.print(out);  
+}
+
+void sendData() {
+  String out = String("X->" + x + ",Y->" + y + ",Z->" + z +",D->" + distance); 
+  Serial.println(out);
+  Xbee.println(out);  
 }
 
 void loop() {
@@ -83,6 +82,7 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     senseTilt(); 
     senseDistance(); 
+    sendData();
     previousMillis = currentMillis;  
   }
   
