@@ -4,9 +4,6 @@ import datetime
 import socket 
 import requests 
 
-UDP_SVR_ADDR = "192.168.1.3" 
-UDP_SVR_PORT = 9999
-
 REST_PORT = 3000
 REST_ADDR = "18.222.128.16"
 
@@ -66,13 +63,11 @@ def determine_position(position):
 def record_squat():
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print "SQUAT!! at " + now 
-    sock.sendto("SQT", (UDP_SVR_ADDR, UDP_SVR_PORT)) 
     requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/squat') 
 
 def record_pushup():
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print "PUSHUP!! at " + now 
-    sock.sendto("PSH", (UDP_SVR_ADDR, UDP_SVR_PORT)) 
     requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/pushup') 
 
 last_pos = POSITION_STANDING 
