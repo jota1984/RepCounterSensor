@@ -4,6 +4,8 @@ import datetime
 import socket 
 import requests 
 
+SERIAL_PORT = '/dev/ttyUSB0' 
+
 REST_PORT = 3000
 REST_ADDR = "18.222.128.16"
 
@@ -29,7 +31,7 @@ THRESHOLDS_HIGH = (
 
 POSITION_LABELS = ("STANDING","SQUATTING", "PLANK_HIGH", "PLANK_LOW", "UNKOWN")  
 
-ser = serial.Serial(port='/dev/ttyUSB0')
+ser = serial.Serial(port=SERIAL_PORT)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
 
 def test_threshold(position, thresh_lo, thresh_hi):
