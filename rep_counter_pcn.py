@@ -64,12 +64,12 @@ def determine_position(position):
 
 def record_squat():
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print "SQUAT!! at " + now 
+    print("SQUAT!! at " + now)
     requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/squat') 
 
 def record_pushup():
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print "PUSHUP!! at " + now 
+    print("PUSHUP!! at " + now)
     requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/pushup') 
 
 last_pos = POSITION_STANDING 
@@ -77,14 +77,14 @@ pos = POSITION_STANDING
 plank_h = 2000
 
 while True:
-    msg = ser.readline() 
+    msg = ser.readline().decode('utf-8') 
     #align with start of message 
     if (re.match("X->(-)?\d+\.\d+,Y->(-)?\d+\.\d+,Z->(-)?\d+\.\d+,D->\d+",msg)): 
         pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
-        pos_vector = map(float, pos_vector) 
-        print pos_vector
+        pos_vector = list(map(float, pos_vector)) 
+        print(pos_vector)
         pos = determine_position(pos_vector)
-        print POSITION_LABELS[pos] 
+        print(POSITION_LABELS[pos])
         if (pos != POSITION_UNKNOWN):
             if (pos == POSITION_STANDING and 
                     last_pos == POSITION_SQUAT):
@@ -94,5 +94,5 @@ while True:
                 record_pushup() 
             last_pos = pos
     else:
-        print "GARBLED -> " + msg
+        print("GARBLED -> " + msg)
                 
