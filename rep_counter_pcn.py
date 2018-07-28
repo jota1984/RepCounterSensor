@@ -72,27 +72,29 @@ def record_pushup():
     print("PUSHUP!! at " + now)
     requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + '/pushup') 
 
-last_pos = POSITION_STANDING 
-pos = POSITION_STANDING
-plank_h = 2000
+def main(): 
+    last_pos = POSITION_STANDING 
+    pos = POSITION_STANDING
+    while True:
+        msg = ser.readline().decode('utf-8') 
+        #align with start of message 
+        if (re.match("X->(-)?\d+\.\d+,Y->(-)?\d+\.\d+,Z->(-)?\d+\.\d+,D->\d+",msg)): 
+            pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
+            pos_vector = list(map(float, pos_vector)) 
+            print(pos_vector)
+            pos = determine_position(pos_vector)
+            print(POSITION_LABELS[pos])
+            if (pos != POSITION_UNKNOWN):
+                if (pos == POSITION_STANDING and 
+                        last_pos == POSITION_SQUAT):
+                    record_squat() 
+                if (pos == POSITION_PLANK_HIGH and 
+                        last_pos == POSITION_PLANK_LOW ):
+                    record_pushup() 
+                last_pos = pos
+        else:
+            print("GARBLED -> " + msg)
 
-while True:
-    msg = ser.readline().decode('utf-8') 
-    #align with start of message 
-    if (re.match("X->(-)?\d+\.\d+,Y->(-)?\d+\.\d+,Z->(-)?\d+\.\d+,D->\d+",msg)): 
-        pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
-        pos_vector = list(map(float, pos_vector)) 
-        print(pos_vector)
-        pos = determine_position(pos_vector)
-        print(POSITION_LABELS[pos])
-        if (pos != POSITION_UNKNOWN):
-            if (pos == POSITION_STANDING and 
-                    last_pos == POSITION_SQUAT):
-                record_squat() 
-            if (pos == POSITION_PLANK_HIGH and 
-                    last_pos == POSITION_PLANK_LOW ):
-                record_pushup() 
-            last_pos = pos
-    else:
-        print("GARBLED -> " + msg)
-                
+if __name__ == '__main__':
+    main()                
+
