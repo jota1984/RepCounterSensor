@@ -3,6 +3,7 @@ import re
 import datetime
 import socket 
 import requests 
+import struct 
 
 from digi.xbee.devices import XBeeDevice
 from digi.xbee.util import utils
@@ -13,8 +14,8 @@ from digi.xbee.exception import InvalidPacketException
 SERIAL_PORT = '/dev/ttyUSB0' 
 SERIAL_BPS = 9600 
 
-THIGH_SOURCE = XBee64BitAddress(bytearray(b'\x00\x13\xA2\x00\x41\x80\xAA\xA6')) 
-ECG_SOURCE = XBee64BitAddress(bytearray(b'\x00\x13\xA2\x00\x41\x80\xAA\xA5')) 
+THIGH_SOURCE = XBee64BitAddress(bytearray(b'\x00\x13\xA2\x00\x41\x80\xAA\xA5')) 
+ECG_SOURCE = XBee64BitAddress(bytearray(b'\x00\x13\xA2\x00\x41\x80\xAA\xA6')) 
 
 REST_PORT = 3000
 REST_ADDR = "18.222.128.16"
@@ -106,7 +107,7 @@ class RepCounter():
                     self.last_pos == POSITION_SQUAT):
                 self.record_squat() 
             if (self.current_pos == POSITION_PLANK_HIGH and 
-                    self.current_last_pos == POSITION_PLANK_LOW ):
+                    self.last_pos == POSITION_PLANK_LOW ):
                 self.record_pushup() 
             self.last_pos = self.current_pos
 
@@ -125,9 +126,11 @@ def main():
                     source = xbee_message.remote_device.get_64bit_addr() 
                     print("Msg from %s" % (source))
                     if (source == THIGH_SOURCE):
-                        msg = data.decode()
-                        pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
-                        pos_vector = list(map(float, pos_vector)) 
+                        x = struct.unpack(">h",data[0:2])
+                        y = struct.unpack(">h",data[2:4])
+                        z = struct.unpack(">h",data[4:6])
+                        d = struct.unpack(">h",data[6:8])
+                        pos_vector = [x[0]/100.0, y[0]/100.0, z[0]/100.0, d[0]] 
                         rep_counter.update_position(pos_vector)
                     elif (source == ECG_SOURCE): 
                         #convert bytearrays to String 

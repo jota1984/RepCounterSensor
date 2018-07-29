@@ -2,6 +2,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_ADXL345_U.h>
 #include <SoftwareSerial.h>
+#include <XBee.h>
 
 // main loop execution interval 
 const long interval = 250;
@@ -12,15 +13,24 @@ unsigned long previousMillis = 0;
 const int trigPin = 9; 
 const int echoPin = 10;
 
+// Initialize XBee 
+XBee xbee = XBee(); 
+// we are sending 4 ints, payload = 4*2
+uint8_t payload[8];
+// send to coordinator (DH = 0, DL = 0)
+XBeeAddress64 addr64 = XBeeAddress64(0x0000000, 0x00000000);
+ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
+ZBTxStatusResponse txStatus = ZBTxStatusResponse();
+
 // Sense distance flag
 int senseDistanceFlag = 1; 
 
 //Sensor data variables
-String x, y, z; 
+int x, y, z; 
 int distance; 
 
-// initialize serial com with Xbee 
-SoftwareSerial Xbee(2,3);
+// initialize serial com for Xbee 
+SoftwareSerial softSerial(2,3);
 
 /* Assign ID to to accelerometer */
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
@@ -28,7 +38,8 @@ Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 void setup() {
   // Initialize serial 
   Serial.begin(9600);
-  Xbee.begin(9600); 
+  softSerial.begin(9600); 
+  xbee.setSerial(softSerial);
 
   // Initialize Ultrasonic Sensor
   pinMode(trigPin, OUTPUT); 
@@ -63,16 +74,34 @@ void senseTilt(){
   sensors_event_t event; 
   accel.getEvent(&event);
 
-  x = String(event.acceleration.x);
-  y = String(event.acceleration.y);
-  z = String(event.acceleration.z); 
+  // We are storing values as ints  for easier encoding for
+  // transmission
+  x = (int)(event.acceleration.x * 100);
+  y = (int)(event.acceleration.y * 100);
+  z = (int)(event.acceleration.z * 100); 
    
 }
 
 void sendData() {
-  String out = String("X->" + x + ",Y->" + y + ",Z->" + z +",D->" + distance); 
+  String x_str, y_str, z_str;
+  x_str = String(x/100.0);
+  y_str = String(y/100.0);
+  z_str = String(z/100.0); 
+  String out = String("X->" + x_str + ",Y->" + y_str + ",Z->" + z_str +",D->" + distance); 
+
   Serial.println(out);
-  Xbee.println(out);  
+  //Xbee.println(out);  
+
+  payload[0] = x >> 8; 
+  payload[1] = x; 
+  payload[2] = y >> 8; 
+  payload[3] = y; 
+  payload[4] = z >> 8; 
+  payload[5] = z; 
+  payload[6] = distance >> 8; 
+  payload[7] = distance; 
+
+  xbee.send(zbTx); 
 }
 
 void loop() {
