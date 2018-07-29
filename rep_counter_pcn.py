@@ -8,9 +8,13 @@ from digi.xbee.devices import XBeeDevice
 from digi.xbee.util import utils
 from digi.xbee.models.address import XBee64BitAddress
 from digi.xbee.models.status import PowerLevel
+from digi.xbee.exception import InvalidPacketException
 
 SERIAL_PORT = '/dev/ttyUSB0' 
 SERIAL_BPS = 9600 
+
+THIGH_SOURCE = XBee64BitAddress(bytearray(b'\x00\x13\xA2\x00\x41\x80\xAA\xA6')) 
+ECG_SOURCE = XBee64BitAddress(bytearray(b'\x00\x13\xA2\x00\x41\x80\xAA\xA5')) 
 
 REST_PORT = 3000
 REST_ADDR = "18.222.128.16"
@@ -116,14 +120,21 @@ def main():
             try:
                 xbee_message = device.read_data()
                 if xbee_message is not None:
-                    msg = xbee_message.data.decode()
-                    print("From %s >> %s" % (xbee_message.remote_device.get_64bit_addr(),
-                                            msg))
-                    #align with start of message 
-                    if (re.match("X->(-)?\d+\.\d+,Y->(-)?\d+\.\d+,Z->(-)?\d+\.\d+,D->\d+",msg)): 
+                    data = xbee_message.data
+                    #msg = data.decode()
+                    source = xbee_message.remote_device.get_64bit_addr() 
+                    print("Msg from %s" % (source))
+                    if (source == THIGH_SOURCE):
+                        msg = data.decode()
                         pos_vector = re.split("X->|,Y->|,Z->|,D->",msg.rstrip())[1:] 
                         pos_vector = list(map(float, pos_vector)) 
                         rep_counter.update_position(pos_vector)
+                    elif (source == ECG_SOURCE): 
+                        #convert bytearrays to String 
+                        hr = "".join(map(chr,data[1:6]))
+                        temp = "".join(map(chr,data[7:11]))
+                        print("HR %s TEMP %s" % (hr,temp))
+                        
             except InvalidPacketException: 
                 print("Invalid Packet") 
 
