@@ -111,8 +111,23 @@ class RepCounter():
                 self.record_pushup() 
             self.last_pos = self.current_pos
 
+class BioReporter(): 
+    """Process data from bio node and report events to the cloud""" 
+
+    def __init__(self, addr, port):
+        self.addr = addr 
+        self.port = port 
+
+    def report_bio(self, temp, hr ):
+        """Report bio entry to the cloud""" 
+        print("HR %s TEMP %s" % (hr,temp))
+        requests.post('http://' + REST_ADDR + ':' + str(REST_PORT) + 
+                '/bio?hr=' + hr + '&temp=' + temp ) 
+
+
 def main(): 
     rep_counter = RepCounter(REST_ADDR, REST_PORT)
+    bio_reporter = BioReporter(REST_ADDR, REST_PORT) 
     device = XBeeDevice(SERIAL_PORT, SERIAL_BPS)
     try:
         device.open()
@@ -136,7 +151,7 @@ def main():
                         #convert bytearrays to String 
                         hr = "".join(map(chr,data[1:6]))
                         temp = "".join(map(chr,data[7:11]))
-                        print("HR %s TEMP %s" % (hr,temp))
+                        bio_reporter.report_bio(temp, hr) 
                         
             except InvalidPacketException: 
                 print("Invalid Packet") 
